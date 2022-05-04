@@ -227,7 +227,7 @@ class SSA(object):
 T = 1.0/800.0
 N = 2048
 S = 120
-SNR = -3
+SNR = -15
 F = 60.0
 extraF = 0.0
 
@@ -237,6 +237,35 @@ sig = y + noise
 
 
 F_ssa_L2 = SSA(sig, 8, save_mem=False)
+
+
+fig = plt.figure("init")
+fig.supxlabel("Frequency")
+fig.supylabel("Amplitude")
+plt.subplot(211)
+plt.title("Generated signal N="+str(N)+",F="+str(F)+",SNR="+str(np.abs(SNR)))
+plt.plot(sig)
+plt.subplot(212)
+plt.title("FFT of generated signal")
+x,y = fetchFFT(sig, sig, N, T)
+plt.plot(x,y)
+
+
+fig = plt.figure("components")
+fig.supxlabel("Frequency")
+fig.supylabel("Amplitude")
+for i in range(1,len(F_ssa_L2.TS_comps.T)+1):
+    plt.subplot(2,4,i)
+    plt.axvline(x=F, color='black', ls='--')
+    plt.title(i)
+    x,y = fetchFFT(F_ssa_L2.TS_comps.T[i-1], F_ssa_L2.TS_comps.T[i-1], N, T)
+    plt.plot(x,y)
+plt.tight_layout()
+plt.show()
+
+
+
+
 plt.figure(1)
 plt.subplot(121)
 for spec in F_ssa_L2.TS_comps.T:

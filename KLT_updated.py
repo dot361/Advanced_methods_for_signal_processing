@@ -338,10 +338,12 @@ print(N,S)
 
 # plt.figure(1)
 x, y = generateSignal(N=N,T=T, F=F,extraF=extraF)
+ox, oy = fetchFFT(x, y, N, T)
 
 noise_types = ["blue", "violet", "brownian", "pink"]
 ptr = 1
 plt.figure(1)
+rmse_vals = []
 for noise_type in noise_types:
     plt.figure(1)
     plt.subplot(3,2,ptr)
@@ -355,7 +357,7 @@ for noise_type in noise_types:
     fx, fy = fetchFFT(y+noise, y+noise, N, T)
     plt.axvline(x=F, color='black', ls='--')
     plt.plot(fx,fy, label=noise_type, color="forestgreen")
-
+    rmse_vals.append(rmse(oy,fy))
     plt.legend(loc='upper right', prop={'size': 10})
     plt.grid()
     ptr+=1 
@@ -375,11 +377,18 @@ fx, fy = fetchFFT(y+noise, y+noise, N, T)
 plt.axvline(x=F, color='black', ls='--')
 
 plt.plot(fx,fy, label="white", color="forestgreen")
+rmse_vals.append(rmse(oy,fy))
 
 plt.legend(loc='upper right', prop={'size': 10})
 plt.grid()
 plt.suptitle("Fourier transform of noisy signal generated with "+ str(np.abs(SNR)) +" dB SNR at " + str(F) +" Hz")
 plt.tight_layout()
+
+
+plt.figure(3)
+
+plt.plot(rmse_vals)
+
 plt.show()
 
 

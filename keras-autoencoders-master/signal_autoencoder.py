@@ -12,7 +12,8 @@ print(device_lib.list_local_devices())
 print(tf.__version__)
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 tf.test.is_gpu_available()
-
+from keras.utils.vis_utils import plot_model
+import visualkeras
 
 def fetchFFT(x,y,N,T):
     yf = fft(y)
@@ -22,17 +23,17 @@ def fetchFFT(x,y,N,T):
     return xf, 2.0/N * np.abs(yf[0:N//2])
 
 # Model configuration
-width, height = 128, 8  # 128, 8  
+width, height = 256, 8  # 128, 8  
 input_shape = (width, height, 1)
 batch_size = 40 #150
-no_epochs = 7
+no_epochs = 14
 train_test_split = 0.3
 validation_split = 0.2
 verbosity = 1
 max_norm_value = 2.0
 
 T = 1.0/800.0
-N = 1024
+N = 2048
 S = 120
 SNR = -10
 F = 60.0
@@ -40,9 +41,9 @@ extraF = 0.0
 
 
 # Load data
-data_noisy = np.load('./signal_waves_noisy_1024_500k.npy')
+data_noisy = np.load('./signal_waves_noisy_2048_200k.npy')
 x_val_noisy, y_val_noisy = data_noisy[:,0], data_noisy[:,1]
-data_pure = np.load('./signal_waves_medium_1024_500k.npy')
+data_pure = np.load('./signal_waves_medium_2048_200k.npy')
 x_val_pure, y_val_pure = data_pure[:,0], data_pure[:,1]
 
 # Reshape data
@@ -75,7 +76,13 @@ model.add(Conv2DTranspose(32, kernel_size=(3,3), kernel_constraint=max_norm(max_
 model.add(Conv2DTranspose(128, kernel_size=(3,3), kernel_constraint=max_norm(max_norm_value), activation='relu', kernel_initializer='he_uniform'))
 model.add(Conv2D(1, kernel_size=(3, 3), kernel_constraint=max_norm(max_norm_value), activation='sigmoid', padding='same'))
 
+
+
+
 model.summary()
+
+# plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
+#visualkeras.layered_view(model,legend=True).show()
 
 # Compile and fit data
 model.compile(optimizer='adam', loss='binary_crossentropy')
@@ -87,7 +94,7 @@ model.fit(noisy_input, pure_input,
 # Generate reconstructions
 num_reconstructions = 4
 samples = noisy_input_test[:num_reconstructions]
-model.save('20SNR_7EPOCH_2048N')
+model.save('10_25SNR_14EPOCH_2048N')
 reconstructions = model.predict(samples)
 
 # Plot reconstructions

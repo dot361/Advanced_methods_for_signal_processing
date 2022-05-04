@@ -67,13 +67,14 @@ def generateSignalMatrix(N=1024, S=5, T=1.0/800.0, F=60.0, SNR=-20, extraF=0.0):
 
 
 T = 1.0/800.0
-N = 1024
+N = 2048
 S = 120
-SNR = -30
-F = 55.0
+SNR = -20
+F = 30.0
 extraF = 0.0
-width, height = 128, 8
-
+# width, height = 128, 8
+width, height = 256, 8  # 128, 8  
+# input_shape = (width, height, 1)
 
 xs, ys = generateSignal(N=N, T=T, F=F)
 noise = generateNoise(ys, SNR)
@@ -81,7 +82,7 @@ noise = generateNoise(ys, SNR)
 sig = ys + noise
 sig = sig.reshape((1, width, height, 1))
 
-model = keras.models.load_model('10_210_SNR_1024N')
+model = keras.models.load_model('10_25SNR_14EPOCH_2048N')
 
 reconstructions = model.predict(sig).reshape((width * height,))
 
@@ -89,10 +90,16 @@ plt.figure(1)
 plt.plot(ys+noise)
 plt.plot(reconstructions)
 plt.figure(2)
-xf, meanyf = fetchFFT(reconstructions, reconstructions, N, T)
-plt.plot(xf, meanyf)
+plt.title("F="+str(F)+", SNR="+str(-SNR))
+plt.axvline(x=F, color='black', ls='--')
 xf, meanyf = fetchFFT(ys+noise, ys+noise, N, T)
-plt.plot(xf, meanyf)
+plt.plot(xf, meanyf, label="FFT")
+xf, meanyf = fetchFFT(reconstructions, reconstructions, N, T)
+plt.plot(xf, meanyf, label="ML")
+plt.grid()
+plt.xlabel("Frequency")
+plt.ylabel("Amplitude")
+plt.legend()
 plt.show()
 
 

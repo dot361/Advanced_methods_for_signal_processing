@@ -21,7 +21,7 @@ plt.rcParams['axes.linewidth'] = 2
 cols = plt.get_cmap('tab10').colors
 
 # Sample configuration
-num_samples = 500000
+num_samples = 100000
 N=2048
 T=1.0/800
 F=50.0
@@ -70,12 +70,12 @@ def generateData():
     print(np.shape(np.array(samples[0][0])))
     
     # Save data to file for re-use
-    np.save('./signal_waves_medium_2048_500k.npy', samples)
+    np.save('./signal_waves_medium_2048_100k.npy', samples)
     return Fs
 
 def applyNoise():
     # Load data
-    data = np.load('./signal_waves_medium_2048_500k.npy')
+    data = np.load('./signal_waves_medium_2048_100k.npy')
     x_val, y_val = data[:,0], data[:,1]
 
     # Add noise to data
@@ -89,7 +89,7 @@ def applyNoise():
         noisy_samples.append([x_val[i], signal])
     
     # Save data to file for re-use
-    np.save('./signal_waves_noisy_1024_500k.npy', noisy_samples)
+    np.save('./signal_waves_noisy_2048_100k.npy', noisy_samples)
     for i in range(0, num_samples_visualize):
         random_index = np.random.randint(0, len(noisy_samples)-1)
         x_axis, y_axis = noisy_samples[random_index]

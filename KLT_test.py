@@ -8,8 +8,18 @@ from numpy import matlib as mb
 import plotly.graph_objects as go
 import sys
 from scipy import stats
+from cycler import cycler
 
 np.set_printoptions(precision=3)
+# Fiddle with figure settings here:
+plt.rcParams['figure.figsize'] = (10,8)
+plt.rcParams['font.size'] = 14
+plt.rcParams['image.cmap'] = 'plasma'
+plt.rcParams['axes.linewidth'] = 2
+# Set the default colour cycle (in case someone changes it...)
+cols = plt.get_cmap('tab10').colors
+plt.rcParams['axes.prop_cycle'] = cycler(color=cols)
+
 
 """
 Performs KLT on a 2D matrix, returning the reconstructed signal matrix
@@ -17,7 +27,7 @@ Performs KLT on a 2D matrix, returning the reconstructed signal matrix
 :K: Amount of dominant components selected to perform signal reconstruction
 """
 # @profile
-def KLT(D, k=1):
+def KLT_old(D, k=1):
     mu_D = np.mean(D,axis=0)
     B = D-mb.repmat(mu_D,m=np.shape(D)[0],n=1)
     C = np.dot(B.T, B)
@@ -26,6 +36,20 @@ def KLT(D, k=1):
     eigenvect = V[indices]  
     selectedEig = eigenvect[0:k,:].T
     return np.dot((np.dot(B,selectedEig)), selectedEig.T) + mb.repmat(mu_D, m=np.shape(D)[0], n=1) 
+
+def KLT(D, k=1):
+    mu_D = np.mean(D,axis=0)
+    B = D-mb.repmat(mu_D,m=np.shape(D)[0],n=1)
+    C = np.dot(B.T, B)
+    [eigenvals, V] = sp.linalg.eigh(C)
+    # print(np.shape(eigenvals))
+    # print("eigenvals: ", eigenvals)
+    indices = -np.argsort(-eigenvals)
+    eigenvect = V[indices]  
+    selectedEig = eigenvect.T[:,k].T
+    selectedEig = selectedEig[:,np.newaxis]
+    return np.dot((np.dot(B,selectedEig)), selectedEig.T) + mb.repmat(mu_D, m=np.shape(D)[0], n=1) 
+
 
 """
 Generates white noise based on https://stackoverflow.com/questions/52913749/add-random-noise-with-specific-snr-to-a-signal
@@ -79,6 +103,8 @@ def generateSignalMatrix(N=1024, S=5, T=1.0/800.0, F=60.0, SNR=-20):
         amplitude.append(y+noise)
     return x, amplitude # x is the same for all signals
 
+def rmse(predictions, targets):
+    return np.sqrt(((predictions - targets) ** 2).mean())
 
 T = 1.0/800.0
 N = 2048
@@ -108,12 +134,14 @@ print(N,S)
 def mainFun():
     x, D = generateSignalMatrix(N=N, S=S, T=T, F=F, SNR=SNR)
     print(SNR)
+    ox, oy = fetchFFT(x, D[0], N=N,T=T)
     fft_y = []
     for i in D:
         org_x, org_y, = fetchFFT(x,i,N,T)
         fft_y.append(org_y)
     fft_y = np.mean(np.array(fft_y),axis=0)
-    reconstr = KLT(D=D,k=1)
+
+    reconstr = KLT_old(D=D,k=1)
     meanyf = []
     for idx,i in enumerate(reconstr):
         xf, yf = fetchFFT(x,i,N,T)
@@ -126,8 +154,11 @@ def mainFun():
     KLT_max = np.argmax(meanyf[maxpeak_range])+149
     FFT_max = np.argmax(fft_y[maxpeak_range])+149
 
-    FFT_z = stats.zscore(fft_y)
-    KLT_z = stats.zscore(meanyf)
+    fft_rmse = rmse(oy,fft_y)
+    klt_rmse = rmse(oy,meanyf)
+
+    # FFT_z = stats.zscore(fft_y)
+    # KLT_z = stats.zscore(meanyf)
     
     # print(meanyf[KLT_max], np.mean(meanyf))
 
@@ -147,7 +178,7 @@ def mainFun():
     # plt.legend()
     # plt.grid()
     # plt.show()
-    return [SNR,  meanyf[KLT_max]/np.mean(meanyf), fft_y[FFT_max]/np.mean(fft_y)]
+    return [SNR,  meanyf[KLT_max]/np.mean(meanyf), fft_y[FFT_max]/np.mean(fft_y), klt_rmse, fft_rmse]
 
 
 fig = plt.figure()
@@ -157,7 +188,7 @@ fig = plt.figure()
 
 
 total = []
-for iter in range(0,1001):
+for iter in range(0,101):
     print("iter: ", iter)
     rez = []
     for i in range(10,41):
@@ -177,14 +208,25 @@ for iter in range(0,1001):
 
 print(np.mean(total,axis=1))
 total_mean = np.mean(np.array(total), axis=0)
+plt.subplot(121)
+plt.axhline(y=3.0, color='black', ls='--')
+
 plt.plot(total.T[0],total.T[1], label="KLT S="+str(S))
 plt.plot(total.T[0],total.T[2], label="FFT S="+str(S))
-
-np.savetxt("./S_results/s1000iter.csv", total, delimiter=",", fmt='%10.5f')
-
 plt.xlabel("dB")
 plt.ylabel("Sigma")
 plt.minorticks_on()
 plt.legend()
 plt.grid()
+plt.subplot(122)
+plt.plot(total.T[0],total.T[3], label="FFT S="+str(S))
+plt.plot(total.T[0],total.T[4], label="KLT S="+str(S))
+plt.xlabel("dB")
+plt.ylabel("RMSE")
+plt.minorticks_on()
+plt.legend()
+plt.grid()
 plt.show()
+# np.savetxt("./S_results/s1000iter.csv", total, delimiter=",", fmt='%10.5f')
+# with open('kltVfft', 'wb') as f:
+#     np.save(f,total)
