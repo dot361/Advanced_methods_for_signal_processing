@@ -399,27 +399,56 @@ def mainFun():
     noise = generateNoise(y,SNR)
     ox, oy = fetchFFT(y, y, N, T)
 
-    components = [8,16,32,64,128,256,512]
+    components = [8,16,32,128,256,512]
     rez = []
     fig = plt.figure(1)
     fig.supxlabel("Frequency")
     fig.supylabel("Amplitude")
+    wcorr_fig, axes = plt.subplots(nrows=2, ncols=3)
+    wcorr_fig.supxlabel(r"$\tilde{F}_i$")
+    wcorr_fig.supylabel(r"$\tilde{F}_j$")
+
     count = 0
     sigs = []
-    for comp in components:
+    for index, comp in enumerate(components):
         ssa_rez = SSA(y+noise, comp)
         comp_sig = []
         rmse_rez = []
         comp_rez = []
+        # if(index!=0):
+        im = axes.flat[index].imshow(ssa_rez.Wcorr)
+        axes.flat[index].set_title("L="+str(comp))
+        # axes.flat[index].set_ylabel(str(comp))
+        # axes.flat[index].set_xticks([], [])
+        # axes.flat[index].set_yticks([], [])
+        label_list = ['1', '2', '3', '4', '5', '6','7','8']
 
+
+        axes.flat[index].minorticks_on()
+        # if(index > 2):
+        zoom_comps = 7
+        axes.flat[index].set_xlim(-0.5,zoom_comps+0.5)
+        # axes.flat[index].set_ylim(comp,comp-40)
+        axes.flat[index].set_ylim(-0.5,zoom_comps+0.5)
+        axes.flat[index].set_title("L="+str(comp))
+
+        axes.flat[index].set_ylim(axes.flat[index].get_ylim()[::-1])
+        axes.flat[index].set_yticklabels(label_list)
+        axes.flat[index].set_xticklabels(label_list)
+        axes.flat[index].set_xticks([0,1,2,3,4,5,6,7])
+        axes.flat[index].set_yticks([0,1,2,3,4,5,6,7])
+        # ax = axes.flat[index].twinx()
+        # ax.set_ylabel(str(comp))
+        # plt.show()
         # fig = plt.figure(1)
         # fig.supxlabel("Frequency")
         # fig.supylabel("Amplitude")
         fails = [0,0,0,0,0,0]
-        
+
         for i in range(1,7):
             SSA_sig = ssa_rez.reconstruct(slice(0,i)).values
             fx, fy = fetchFFT(SSA_sig, SSA_sig, N, T)
+            plt.figure(1)
             plt.subplot(2,3,i)
             plt.title(str(i))
             if(comp == 8):
@@ -428,7 +457,7 @@ def mainFun():
             plt.plot(fx,fy, label=str(comp))
             plt.ylim(-0.1,1)
             plt.xlim(50.0,70.0)
-            plt.grid()
+            plt.grid(True)
             plt.minorticks_on()
             plt.legend(loc='upper right', prop={'size': 10})
             maxVal = np.argmax(fy[maxpeak_range])+149
@@ -439,6 +468,7 @@ def mainFun():
             comp_sig.append([fx,fy,np.arange(1,7)])
             comp_rez.append(sigma)
             rmse_rez.append(rmse_val)
+
             if(i==1):
                 count+=1
             if(sigma) < 3.0:
@@ -451,7 +481,13 @@ def mainFun():
         # print(fails)
         rez.append([rmse_rez, comp_rez, fails])
         # plt.tight_layout()
-    # plt.show()
+    wcorr_fig.tight_layout()
+
+    wcorr_fig.subplots_adjust(right=0.8)
+    cbar_ax = wcorr_fig.add_axes([0.85, 0.15, 0.05, 0.7])
+    wcorr_fig.colorbar(im, cax=cbar_ax, label="$W_{i,j}$")
+
+    plt.show()
     print(count)
     # plt.figure("eval")
     # plt.subplot(121)
