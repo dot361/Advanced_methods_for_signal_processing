@@ -204,9 +204,14 @@ def performSSA(orig_TS : np.array, L : int) -> np.array:
     for i in prange(d):
         X_elem = Sigma[i]*np.outer(U[:,i], VT[i,:])
         X_rev = X_elem[::-1]
+        # rez = []
+        # print(-X_rev.shape[0]+1, X_rev.shape[1])
+        idx = 0
         for j in prange(-X_rev.shape[0]+1, X_rev.shape[1]):
-            # print(X_rev.diagonal(j).mean())
-            TS_comps[:,i] = np.diag(X_rev,j).mean()
+            # rez.append(np.diag(X_rev,j).mean())
+            TS_comps[idx,i] = np.diag(X_rev,j).mean()
+            idx+=1 
+        # TS_comps[:,i] = rez
         # TS_comps[:,i] = [X_rev.diagonal(j).mean() for j in range(-X_rev.shape[0]+1, X_rev.shape[1])]
     
     # if(calcWcorr):
@@ -256,6 +261,12 @@ def generateNoise(signal, SNR):
     power = signal.var()
     n = power/snr
     return np.sqrt(n)*np.random.randn(len(signal))
+def fetchFFT(x,y,N,T):
+    yf = fft(y)
+    xf = fftfreq(N, T)[:N//2]
+    # plt.plot(xf, 2.0/N * np.abs(yf[0:N//2]))
+    # plt.show()
+    return xf, 2.0/N * np.abs(yf[0:N//2])
 
 T = 1.0/800.0
 N = 2048
@@ -266,8 +277,24 @@ extraF = 0.0
 
 x, y = generateSignal(N=N,T=T, F=F,extraF=extraF)
 noise = generateNoise(y,SNR)
-mySSA = performSSA(y+noise,8)
+old_ssa = SSA(y+noise, 8)
+old_ssa_rez = old_ssa.reconstruct(slice(0,5)).values
 
+mySSA = performSSA(y+noise,8)
+my_ssa_rez = reconstruct(mySSA, slice(0,5))
+
+fx, fy = fetchFFT(old_ssa_rez,old_ssa_rez, N,T)
+plt.subplot(121)
+
+plt.plot(old_ssa_rez)
+plt.plot(my_ssa_rez)
+
+plt.subplot(122)
+plt.plot(fx, fy)
+fx, fy = fetchFFT(my_ssa_rez,my_ssa_rez, N,T)
+plt.plot(fx, fy)
+
+plt.show()
 
 import time
 
@@ -276,19 +303,30 @@ old_times = [[],[],[],[],[],[],[]]
 improved_times = [[],[],[],[],[],[],[]]
 for comp in range(0,len(comps)):
     print(comps[comp])
-    for i in range(0,10):
+    for i in range(0,501):
         x, y = generateSignal(N=N,T=T, F=F,extraF=extraF)
         noise = generateNoise(y,SNR)
         t0 = time.time()
         old_ssa = SSA(y+noise, comps[comp])
         old_ssa_rez = old_ssa.reconstruct(slice(0,5)).values
+        fx,fy = fetchFFT(old_ssa_rez,old_ssa_rez, N,T)
+        # plt.plot(old_ssa_rez)
+        # plt.figure(1)
+        # plt.plot(fx,fy, label="old")
         t1 = time.time()
         old_times[comp].append(t1-t0)
-        # print("original exec time - "+ str(t1-t0))
+        print("original exec time - "+ str(t1-t0))
         # plt.plot(old_ssa_rez)
         t0 = time.time()
         mySSA = performSSA(y+noise,comps[comp])
         my_ssa_rez = reconstruct(mySSA, slice(0,5))
+        fx,fy = fetchFFT(my_ssa_rez,my_ssa_rez, N,T)
+        print(np.shape(fy))
+
+        # plt.plot(old_ssa_rez)
+        # plt.plot(fx,fy, label="new")
+        # plt.legend()
+        # plt.show()
         t1 = time.time()
         print("improved exec time - "+ str(t1-t0))
         improved_times[comp].append(t1-t0)
