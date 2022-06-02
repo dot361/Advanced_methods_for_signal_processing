@@ -192,14 +192,42 @@ def KLT(D, k=1):
     mu_D = np.mean(D,axis=0)
     B = D-mb.repmat(mu_D,m=np.shape(D)[0],n=1)
     C = np.dot(B.T, B)
-    [eigenvals, V] = sp.linalg.eigh(C)
+    [eigenvals, V] = sp.linalg.eigh(np.cov(np.array(D).T))
     print(np.shape(eigenvals))
     print("eigenvals: ", eigenvals)
     indices = -np.argsort(-eigenvals)
     eigenvect = V[indices]  
     selectedEig = eigenvect.T[:,k].T
     selectedEig = selectedEig[:,np.newaxis]
-    return np.dot((np.dot(B,selectedEig)), selectedEig.T) + mb.repmat(mu_D, m=np.shape(D)[0], n=1) 
+    return np.dot((np.dot(B,selectedEig)), selectedEig.T)*10 + mb.repmat(mu_D, m=np.shape(D)[0], n=1) 
+
+
+    # import plotly.graph_objects as go
+    # fig = go.Figure()
+    # temp = np.dot((np.dot(B,selectedEig)), selectedEig.T) * 10 + mb.repmat(mu_D, m=np.shape(D)[0], n=1) 
+    # no_klt = np.mean(D,axis=0)
+    # no_klt = np.abs(np.fft.fft(no_klt))
+    # fig.add_trace(go.Scatter(y=no_klt,name='AVG_NO_KLT'))
+
+
+    # rez = np.abs(np.fft.fft(temp))
+    # rez_dict = []
+    # for i in rez:
+    #     sigma = np.max(i)/np.mean(i)
+    #     rez_dict.append({'sigma':np.round(sigma,4), 'sig':i})
+    # rez_dict = sorted(rez_dict, key=lambda d: d['sigma'])
+    # for i in rez_dict:
+    #     fig.add_trace(go.Scatter(y=i['sig'],name=i['sigma']))
+
+    # avg = []
+    # for i in rez_dict[len(rez_dict)-10:]:
+    #     avg.append(i['sig'])
+    # rez = np.mean(avg,axis=0)
+    # fig.add_trace(go.Scatter(y=rez,name='AVG_last_10'))
+    # rez = np.abs(np.fft.fft(np.mean(temp,axis=0)))
+    # fig.add_trace(go.Scatter(y=rez,name='AVG_all'))
+    # fig.show()
+
 
 
 """
@@ -273,11 +301,27 @@ Combines generateSignal and generateNoise functions in one for ease of use
 """
 def generateSignalMatrix(N=1024, S=5, T=1.0/800.0, F=60.0, SNR=-20, extraF=0.0):
     amplitude = []
-    for _ in range(0,S):
-        x, originalY = generateSignal(N=N,T=T, F=F,extraF=extraF)
-        # noise = generateNoise(originalY, SNR)
-        noise = generateNoise(originalY, SNR)
-        amplitude.append(originalY+noise)
+    x, originalY = generateSignal(N=N,T=T, F=2.0,extraF=extraF)
+    noise = generateNoise(originalY, -5)
+    originalY+= noise
+    plt.subplot(121)
+    plt.plot(x,originalY)
+
+    plt.subplot(122)
+    fx, fy = fetchFFT(x,originalY,N,T)
+    plt.plot(fx,fy)
+    plt.show()
+
+    plt.figure('eig')
+    plt.plot(x,originalY)
+    # amplitude = sp.linalg.circulant(originalY+noise)
+    corr = np.correlate(originalY, originalY, 'same')
+    amplitude = sp.linalg.toeplitz(corr)
+    # for _ in range(0,S):
+    #     x, originalY = generateSignal(N=N,T=T, F=F,extraF=extraF)
+    #     noise = generateNoise(originalY, SNR)
+        
+    #     amplitude.append(originalY+noise)
     return x, amplitude # x is the same for all signals
 
 def generateColoredSignalMatrix(N=1024, S=5, T=1.0/800.0, F=60.0, SNR=-20, extraF=0.0, noise_type="white"):
@@ -320,140 +364,24 @@ def pink_noise(f):
     return 1/np.where(f == 0, float('inf'), np.sqrt(f))
 
 
-T = 1.0/800.0
-N = 1024
+T = 1.0/2048.0
+# T = 0.1
+N = 2048
+# N = 10
 S = 120
-SNR = -20
-F = 70.0
+SNR = -15
+F = 2.0
 extraF = 0.0
-width, height = 128, 8
-
+# width, height = 128, 8
+width, height = 256, 8  # 128, 8  
 print(N,S)
 
 
 
-
-
-
-
-# plt.figure(1)
-x, y = generateSignal(N=N,T=T, F=F,extraF=extraF)
-ox, oy = fetchFFT(x, y, N, T)
-
-noise_types = ["blue", "violet", "brownian", "pink"]
-ptr = 1
-plt.figure(1)
-rmse_vals = []
-for noise_type in noise_types:
-    plt.figure(1)
-    plt.subplot(3,2,ptr)
-    noise = generateColoredNoise(y,SNR, noise_type=noise_type)
-    plt.plot(x,y+noise, label=noise_type, color="forestgreen")
-    plt.legend(loc='upper right', prop={'size': 10})
-    plt.grid()
-    plt.figure(2)
-    plt.subplot(3,2,ptr)
-    # noise = generateColoredNoise(y,SNR, noise_type=noise_type)
-    fx, fy = fetchFFT(y+noise, y+noise, N, T)
-    plt.axvline(x=F, color='black', ls='--')
-    plt.plot(fx,fy, label=noise_type, color="forestgreen")
-    rmse_vals.append(rmse(oy,fy))
-    plt.legend(loc='upper right', prop={'size': 10})
-    plt.grid()
-    ptr+=1 
-# plt.show()
-plt.figure(1)
-plt.subplot(313)
-noise = generateNoise(y,SNR)
-plt.plot(x,y+noise, label="white", color="forestgreen")
-plt.legend(loc='upper right', prop={'size': 10})
-plt.grid()
-plt.suptitle("Noisy signal generated with "+ str(np.abs(SNR)) +" dB SNR at " + str(F) +" Hz")
-plt.tight_layout()
-
-plt.figure(2)
-plt.subplot(313)
-fx, fy = fetchFFT(y+noise, y+noise, N, T)
-plt.axvline(x=F, color='black', ls='--')
-
-plt.plot(fx,fy, label="white", color="forestgreen")
-rmse_vals.append(rmse(oy,fy))
-
-plt.legend(loc='upper right', prop={'size': 10})
-plt.grid()
-plt.suptitle("Fourier transform of noisy signal generated with "+ str(np.abs(SNR)) +" dB SNR at " + str(F) +" Hz")
-plt.tight_layout()
-
-
-plt.figure(3)
-
-plt.plot(rmse_vals)
-
-plt.show()
-
-
-
-
-# plt.plot(x,y)
-# # pinkNoise = generateColoredNoise(y, SNR, "pink")
-# pinkNoise = noise_psd(y, SNR, "pink")
-# # plt.plot(x,y+pinkNoise)
-pinkNoise = pink_noise(N)
-otherPinkNoise = generateColoredNoise(y,SNR=10, noise_type="blue")
-# plt.plot(pinkNoise)
-# plt.plot(otherPinkNoise)
-# blueNoise = noise_psd(y, SNR, "blue")
-# # plt.plot(x,y+blueNoise)
-# brownNoise = noise_psd(y, SNR, "brownian")
-# # plt.plot(x,y+brownNoise)
-
-# whiteNoise = noise_psd(y, SNR, "white")
-# plt.plot(x,y+whiteNoise)
-
-# myWhiteNoise = generateNoise(y,SNR)
-# plt.plot(x,y+myWhiteNoise)
-
-
-# plt.figure(2)
-
-# xf, yf = fetchFFT(x, y, N, T)
-# plt.plot(xf,yf)
-# xf, yf = fetchFFT(x, y+pinkNoise, N, T)
-# plt.plot(xf,yf)
-# xf, yf = fetchFFT(x, y+otherPinkNoise, N, T)
-# plt.plot(xf,yf)
-# plt.show()
-# xf, yf = fetchFFT(x, y+blueNoise, N, T)
-# # plt.plot(xf,yf)
-# xf, yf = fetchFFT(x, y+brownNoise, N, T)
-# # plt.plot(xf,yf)
-# xf, yf = fetchFFT(x, y+whiteNoise, N, T)
-# plt.plot(xf,yf)
-# xf, yf = fetchFFT(x, y+myWhiteNoise, N, T)
-# plt.plot(xf,yf)
-# plt.show()
-
-# plt.rc('font', family='serif')
-# plt.rc('xtick', labelsize='x-small')
-# plt.rc('ytick', labelsize='x-small')
-
-
-# x,y = generateSignal(N=1024,T=T,F=F)
-# noise = generateNoise(signal=y, SNR=-5)
-# plt.plot(x,y+noise, label="Noisy signal")
-# plt.plot(x,y, label="Initial signal")
-# plt.title("N=1024, T=1.0/600.0, F=60, SNR=-5db")
-# plt.xlabel("Time")
-# plt.ylabel("Amplitude")
-# plt.minorticks_on()
-# plt.legend()
-# plt.grid()
-# plt.show()
-
 # @profile
 def mainFun(RMSE_array):
-    # x, D = generateSignalMatrix(N=N, S=S, T=T, F=F, SNR=SNR,extraF=extraF)
-    x, D = generateColoredSignalMatrix(N=N, S=S, T=T, F=F, SNR=SNR,extraF=extraF, noise_type="pink")
+    x, D = generateSignalMatrix(N=N, S=S, T=T, F=F, SNR=SNR,extraF=extraF)
+    # x, D = generateColoredSignalMatrix(N=N, S=S, T=T, F=F, SNR=SNR,extraF=extraF, noise_type="pink")
     _, originalY = generateSignal(N=N,T=T, F=F,extraF=extraF)
 
     print(SNR)
@@ -462,7 +390,7 @@ def mainFun(RMSE_array):
         org_x, org_y, = fetchFFT(x,i,N,T)
         fft_y.append(org_y)
     fft_y = np.mean(np.array(fft_y),axis=0)
-    reconstr = KLT(D=D,k=0)
+    reconstr = KLT(D=D,k=1)
     # meanyf = []
     yf = np.mean(np.array(reconstr),axis=0)
     xf, meanyf = fetchFFT(x, yf, N, T)
@@ -474,11 +402,12 @@ def mainFun(RMSE_array):
     # meanyf = np.mean(np.array(meanyf),axis=0)
 
 
-    model = keras.models.load_model('./keras-autoencoders-master/10_100_SNR_1024N')
+    model = keras.models.load_model('./keras-autoencoders-master/2048_100k_20-60hz-model-10')
 
     reconstruction = model.predict(D[0].reshape((1, width, height, 1))).reshape((width * height,))
     print(reconstruction.shape)
     reconstruction = np.array(reconstruction).reshape((width * height,))
+    reconstruction -= np.mean(reconstruction)
     fft_ML_x, fft_ML_y = fetchFFT(reconstruction, reconstruction, N, T)
 
     F_ssa_L2 = SSA(np.mean(np.array(D),axis=0), 128)
@@ -524,14 +453,23 @@ def mainFun(RMSE_array):
     plt.figure(1)
     plt.plot(fft_originalX, fft_originalY, label="Original")
 
-    plt.plot(xf, meanyf, label="KLT (σ="+str(np.around(KLT_z[KLT_max],decimals=3))+")")
-    plt.plot(org_x, fft_y, label="FFT (σ="+str(np.around(FFT_z[FFT_max],decimals=3))+")")
-    plt.plot(fft_ML_x, fft_ML_y, label="ML (σ="+str(np.around(ML_z[ML_max],decimals=3))+")")
-    plt.plot(fft_SSA_x, fft_SSA_y, label="SSA (σ="+str(np.around(SSA_z[SSA_max],decimals=3))+")")
 
-    plt.plot(xf[KLT_max], meanyf[KLT_max],marker='x',color='blue')
-    plt.plot(xf[FFT_max], fft_y[FFT_max],marker='x',color='green')
-    plt.plot(xf[ML_max], fft_ML_y[FFT_max],marker='x',color='red')
+    new_fft = np.mean(D, axis=0)
+    fx, fy = fetchFFT(new_fft,new_fft,N,T)
+    # plt.plot(fx, fy-np.mean(fy,axis=0), label="FFT (σ="+str(np.around(KLT_z[KLT_max],decimals=3))+")")
+
+    plt.plot(xf, meanyf, label="KLT (σ="+str(np.around(KLT_z[KLT_max],decimals=3))+")")
+    # plt.plot(org_x, fft_y, label="FFT (σ="+str(np.around(FFT_z[FFT_max],decimals=3))+")")
+
+
+
+    
+    # plt.plot(fft_ML_x, fft_ML_y, label="ML (σ="+str(np.around(ML_z[ML_max],decimals=3))+")")
+    # plt.plot(fft_SSA_x, fft_SSA_y, label="SSA (σ="+str(np.around(SSA_z[SSA_max],decimals=3))+")")
+
+    # plt.plot(xf[KLT_max], meanyf[KLT_max],marker='x',color='blue')
+    # plt.plot(xf[FFT_max], fft_y[FFT_max],marker='x',color='green')
+    # plt.plot(xf[ML_max], fft_ML_y[FFT_max],marker='x',color='red')
 
     plt.title(f"N={N}, T=1.0/800.0, F={F}, SNR={SNR} db")
     plt.xlabel("Frequency (Hz)")
@@ -539,6 +477,7 @@ def mainFun(RMSE_array):
     plt.minorticks_on()
     plt.legend(loc='upper right', prop={'size': 6})
     plt.grid()
+    plt.show()
 
 
 
@@ -546,7 +485,8 @@ RMSE_array = []
 
 fig = plt.figure(1)
 
-plt.subplot(321)
+# plt.subplot(321)
+SNR = -15
 mainFun(RMSE_array)
 
 
@@ -558,17 +498,17 @@ SNR = -25
 plt.subplot(323)
 mainFun(RMSE_array)
 
-SNR = -30
-plt.subplot(324)
-mainFun(RMSE_array)
+# SNR = -30
+# plt.subplot(324)
+# mainFun(RMSE_array)
 
-SNR = -35
-plt.subplot(325)
-mainFun(RMSE_array)
+# SNR = -35
+# plt.subplot(325)
+# mainFun(RMSE_array)
 
-SNR = -40
-plt.subplot(326)
-mainFun(RMSE_array)
+# SNR = -40
+# plt.subplot(326)
+# mainFun(RMSE_array)
 # fig.subplots_adjust(top=0.955,
 # bottom=0.06,
 # left=0.11,
